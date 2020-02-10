@@ -192,10 +192,18 @@ makes tabs work in presentation mode as in the rest of Org mode.")
     (if org-hide-emphasis-markers nil
       ;; TODO https://github.com/rlister/org-present/issues/12
       ;; It would be better to reuse org's own facility for this, if possible.
-      (goto-char (point-min))
-      (while (re-search-forward org-emph-re nil t)
-        (org-present-add-overlay (match-beginning 2) (1+ (match-beginning 2)))
-        (org-present-add-overlay (1- (match-end 2)) (match-end 2))))))
+      ;; However it is not obvious how to do this.
+      (progn
+        ;; hide emphasis markers
+        (goto-char (point-min))
+        (while (re-search-forward org-emph-re nil t)
+          (org-present-add-overlay (match-beginning 2) (1+ (match-beginning 2)))
+          (org-present-add-overlay (1- (match-end 2)) (match-end 2)))
+        ;; hide verbatim markers
+        (goto-char (point-min))
+        (while (re-search-forward org-verbatim-re nil t)
+          (org-present-add-overlay (match-beginning 2) (1+ (match-beginning 2)))
+          (org-present-add-overlay (1- (match-end 2)) (match-end 2)))))))
 
 (defun org-present-rm-overlays ()
   "Remove overlays for this mode."
@@ -249,6 +257,12 @@ makes tabs work in presentation mode as in the rest of Org mode.")
   (run-hooks 'org-present-mode-quit-hook)
   (setq org-present-mode nil))
 
+(defvar org-present-startup-folded nil
+  "Like `org-startup-folded', but for presentation mode. Also analogous to
+introduction of slide items by effects in other presentation programs: i.e., if
+you do not want to show the whole slide at first, but to unfurl it slowly, set
+this to non-nil.")
+
 (defvar org-present-after-navigate-functions nil
   "Abnormal hook run after org-present navigates to a new heading.")
 
@@ -260,11 +274,14 @@ makes tabs work in presentation mode as in the rest of Org mode.")
    (replace-regexp-in-string "[ \t\n]*\\'" "" string)))
 
 (defun org-present-run-after-navigate-functions ()
-  "Run org-present-after-navigate hook, passing the name of the presentation buffer and the current heading."
-  (let* ((title-text (thing-at-point 'line))
-         (safe-title-text (replace-regexp-in-string "^[ \*]" "" title-text))
-         (current-heading (org-present-trim-string safe-title-text)))
-    (run-hook-with-args 'org-present-after-navigate-functions (buffer-name) current-heading)))
+  "Fold slide if `org-present-startup-folded' is non-nil.
+Run org-present-after-navigate hook, passing the name of the presentation buffer and the current heading."
+  (progn
+    (if org-present-startup-folded (org-cycle))
+    (let* ((title-text (thing-at-point 'line))
+           (safe-title-text (replace-regexp-in-string "^[ \*]" "" title-text))
+           (current-heading (org-present-trim-string safe-title-text)))
+      (run-hook-with-args 'org-present-after-navigate-functions (buffer-name) current-heading))))
 
 (provide 'org-present)
 ;;; org-present.el ends here
